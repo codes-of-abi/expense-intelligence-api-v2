@@ -1,13 +1,24 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app import models  # noqa: F401  (registers tables on Base)
+from app.database import Base, engine, get_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)  # Alembic migrations come in Month 2
+    yield
+
 
 app = FastAPI(
     title="Expense Intelligence API",
     description="Track expenses and get spending insights.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
