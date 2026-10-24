@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models  # noqa: F401  (registers tables on Base)
 from app.database import Base, engine, get_db
-from app.routers import categories
+from app.routers import categories, expenses
 
 
 @asynccontextmanager
@@ -24,6 +24,7 @@ app = FastAPI(
 
 
 app.include_router(categories.router)
+app.include_router(expenses.router)
 
 
 @app.get("/health", tags=["health"])
