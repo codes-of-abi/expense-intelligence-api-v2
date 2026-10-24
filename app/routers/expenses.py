@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -31,13 +34,32 @@ def create_expense(payload: schemas.ExpenseCreate, db: Session = Depends(get_db)
 
 
 @router.get("", response_model=list[schemas.ExpenseRead])
-def list_expenses(db: Session = Depends(get_db)):
-    stmt = (
-        select(models.Expense)
-        .options(joinedload(models.Expense.category))
-        .order_by(models.Expense.expense_date.desc(), models.Expense.id.desc())
-    )
-    return db.scalars(stmt).all()
+def list_expenses(
+    category_id: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    min_amount: Decimal | None = Query(default=None, ge=0),
+    max_amount: Decimal | None = Query(default=None, ge=0),
+    search: str | None = Query(default=None, description="Match against title"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.Expense).options(joinedload(models.Expense.category))
+    if category_id is not None:
+        stmt = stmt.where(models.Expense.category_id == category_id)
+    if start_date:
+        stmt = stmt.where(models.Expense.expense_date >= start_date)
+    if end_date:
+        stmt = stmt.where(models.Expense.expense_date <= end_date)
+    if min_amount is not None:
+        stmt = stmt.where(models.Expense.amount >= min_amount)
+    if max_amount is not None:
+        stmt = stmt.where(models.Expense.amount <= max_amount)
+    if search:
+        stmt = stmt.where(models.Expense.title.ilike(f"%{search}%"))
+    stmt = stmt.order_by(models.Expense.expense_date.desc(), models.Expense.id.desc())
+    return db.scalars(stmt.offset(skip).limit(limit)).all()
 
 
 @router.get("/{expense_id}", response_model=schemas.ExpenseRead)
